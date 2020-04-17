@@ -190,11 +190,15 @@
           },
           {
             text: 'Points of interest in Asia',
-            value: 'places in asia',
+            value: 'places in asien', // we need to write this otherwhise results are wrong
           },
           {
             text: 'Points of interest in Australia',
             value: 'places in australia',
+          },
+          {
+            text: 'Castles in Europe',
+            value: 'castles in europe',
           },
         ],
         playerName: '',

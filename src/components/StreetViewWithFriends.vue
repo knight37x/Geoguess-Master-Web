@@ -4,7 +4,8 @@
       ref="header"
       :score="scoreHeader"
       :round="round"
-      :remainingTime="remainingTime" />
+      :remainingTime="remainingTime"
+      @resetClicked="loadDecidedStreetView"/>
     <div id="street-view-container">
       <div id="street-view">
       </div>

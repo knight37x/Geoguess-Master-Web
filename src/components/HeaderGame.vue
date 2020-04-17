@@ -9,6 +9,11 @@
       >
         <span id="countdown-text">{{ getCountdownText }}</span>
       </div>
+      <v-btn
+        dark
+        depressed
+        color="#FF5252"
+        @click="clickReset">RESET POSITION</v-btn>
       <div class="flex-grow-1"></div>
       <div class="round-score-container">
         <span class="sub-text">ROUND: </span>
@@ -42,6 +47,11 @@
         return minutes + ':' + seconds
       },
     },
+    methods: {
+      clickReset() {
+        this.$emit('resetClicked')
+      }
+    }
   }
 </script>
 

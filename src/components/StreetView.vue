@@ -2,7 +2,8 @@
   <div id="game-page">
     <HeaderGame 
       :score="score"
-      :round="round" />
+      :round="round"
+      @resetClicked="loadOriginalPosition"/>
     <div id="street-view-container">
       <div id="street-view">
       </div>
@@ -43,6 +44,18 @@
         var service = new google.maps.StreetViewService()
         service.getPanorama({
           location: this.getRandomLatLng(),
+          preference: 'nearest',
+          radius: 100000,
+          source: 'outdoor',
+        }, this.checkStreetView)
+      },
+      loadOriginalPosition() {
+        var service = new google.maps.StreetViewService()
+        service.getPanorama({
+          location: {
+            lat: this.randomLatLng.lat(),
+            lng: this.randomLatLng.lng(),
+          },
           preference: 'nearest',
           radius: 100000,
           source: 'outdoor',

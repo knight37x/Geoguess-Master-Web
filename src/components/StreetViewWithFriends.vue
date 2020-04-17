@@ -64,6 +64,7 @@
         hasLocationSelected: false,
         overlay: false,
         room: null,
+        placesService: null,
         isReady: false,
         dialogMessage: true,
         dialogTitle: 'Waiting for other players...',
@@ -72,13 +73,15 @@
     },
     methods: {
       loadStreetView() {
-        var service = new google.maps.StreetViewService()
-        service.getPanorama({
-          location: this.getRandomLatLng(),
-          preference: 'nearest',
-          radius: 100000,
-          source: 'outdoor',
-        }, this.checkStreetView)
+        this.getNextGuessLocation(latLng => {
+          var service = new google.maps.StreetViewService()
+          service.getPanorama({
+            location: latLng,
+            preference: 'nearest',
+            radius: 100000,
+            source: 'outdoor',
+          }, this.checkStreetView)
+        })
       },
       loadDecidedStreetView() {
         // Other players load the decided streetview the first player loaded
@@ -92,6 +95,52 @@
           radius: 100000,
           source: 'outdoor',
         }, this.checkStreetView)        
+      },
+      getNextGuessLocation(locationCallback) {
+        this.room.once('value', (snapshot) => {
+          var topic = snapshot.child('roomTopic').val()
+          var rand = this.getRandomLatLng();
+          if(topic === 'random') {
+            locationCallback(rand)
+            return
+          }
+          let locallyStoredString = localStorage.getItem(topic);
+          if(locallyStoredString) {
+            this.getRandomGuessLocationFromList(JSON.parse(locallyStoredString), locationCallback)
+            return
+          }
+          // query Maps
+          if(!this.placesService) {
+            this.placesService = new google.maps.places.PlacesService(document.getElementById('street-view'))
+          }
+          var request = {
+            query: topic,
+          }
+          var results = [];
+          this.placesService.textSearch(request, (result, status, pagination) => {
+            if(status === google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT && results.length > 5) {
+              this.getRandomGuessLocationFromList(results, locationCallback)
+              return
+            } else if(status !== google.maps.places.PlacesServiceStatus.OK) {
+              locationCallback(rand)
+              return
+            }
+            results = results.concat(result.map(r => r.geometry.location))
+            if(pagination && pagination.hasNextPage && results.length < 100) {
+              setTimeout(() => {
+                pagination.nextPage()
+              }, 1000)
+            } else {
+              // no more pages to load, so select a random one and store it in local storage
+              localStorage.setItem(topic, JSON.stringify(results))
+              this.getRandomGuessLocationFromList(results, locationCallback)
+            }
+          })
+        })
+      },
+      getRandomGuessLocationFromList(list, locationCallback) {
+        var index = Math.round(Math.random() * list.length)
+        locationCallback(list[index])
       },
       getRandomLatLng() {
         // Generate a random latitude and longitude
@@ -119,10 +168,13 @@
           // Save the location's latitude and longitude
           this.randomLatLng = data.location.latLng
 
-          // Put the streetview's location into firebase
+          this.randomLat = this.randomLatLng.lat()
+          this.randomLng = this.randomLatLng.lng()
+
+                  // Put the streetview's location into firebase
           this.room.child('streetView/round' + this.round).set({
-            latitude: this.randomLatLng.lat(),
-            longitude:this.randomLatLng.lng()
+            latitude: this.randomLat,
+            longitude:this.randomLng
           })
 
         } else {
@@ -198,6 +250,7 @@
       }
     },
     mounted() {
+      this.room = firebase.database().ref(this.roomName)
       if (this.playerNumber == 1) {
         this.loadStreetView()
       }
@@ -206,7 +259,7 @@
       if (this.roomName == null) {
         this.roomName = 'defaultRoomName'
       }
-      this.room = firebase.database().ref(this.roomName)
+
       this.room.child('active').set(true)
       this.room.on('value', (snapshot) => {
         // Check if the room is already removed

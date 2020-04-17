@@ -59,6 +59,14 @@
                 maxlength="10"
                 v-model="playerName"></v-text-field>
             </v-col>
+            <v-col
+              cols="12"
+              v-if="cardTitle == 'Select Topic'">
+              <v-select
+                dark
+                v-model="roomTopic"
+                :items="roomTopicItems"></v-select>
+            </v-col>
           </v-row>
         </v-container>
       </v-card-text>
@@ -158,6 +166,37 @@
             value: 10,
           },          
         ],
+        roomTopic: 'random',
+        roomTopicItems: [
+          {
+            text: 'Random',
+            value: 'random',
+          },
+          {
+            text: 'Points of interest in World',
+            value: 'places in world',
+          },
+          {
+            text: 'Points of interest in Europe',
+            value: 'places in europe',
+          },
+          {
+            text: 'Points of interest in USA',
+            value: 'places in usa',
+          },
+          {
+            text: 'Points of interest in Russia',
+            value: 'places in russia',
+          },
+          {
+            text: 'Points of interest in Asia',
+            value: 'places in asia',
+          },
+          {
+            text: 'Points of interest in Australia',
+            value: 'places in australia',
+          },
+        ],
         playerName: '',
       }
     },
@@ -172,6 +211,8 @@
           this.setTimeLimitation()
         } else if (this.cardTitle == 'Type a player name') {
           this.setPlayerName()
+        } else if (this.cardTitle == 'Select Topic') {
+          this.setTopic();
         }
       },
       searchRoom() {
@@ -243,14 +284,16 @@
       setPlayerName() {
         this.room.child('playerName/player' + this.playerNumber).set(this.playerName, (error) => {
           if (!error) {
-            // Start the game
-            this.$router.push({
-              name: 'with-friends',
-              params: { 
-                roomName: this.roomName, 
-                playerNumber: this.playerNumber, 
-              }
-            })
+            this.cardTitle = 'Select Topic'
+          }
+        })
+      },
+      setTopic() {
+        this.room.update({
+          roomTopic: this.roomTopic
+        }, (error) => {
+          if (!error) {
+            this.startGame()
           }
         })
       },
@@ -271,6 +314,16 @@
             this.room.child('playerName/player' + this.playerNumber).remove()
           }
         }
+      },
+      startGame() {
+        // Start the game
+        this.$router.push({
+          name: 'with-friends',
+          params: {
+            roomName: this.roomName,
+            playerNumber: this.playerNumber,
+          }
+        })
       }
     }
   }

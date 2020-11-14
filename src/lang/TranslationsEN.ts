@@ -17,7 +17,7 @@ export default {
     },
     StreetViewWithFriends: {
       waitForOtherPlayers: 'Waiting for other players...',
-      redirectToHomePage: 'Refirect to Home Page...',
+      redirectToHomePage: 'Redirect to Home Page...',
       exitGame: 'You are forced to exit the game. Redirect to home page after 5 seconds...',
       waitForOtherPlayersToFinish: 'Waiting for other players to finish the game...',
     },
@@ -70,7 +70,7 @@ export default {
       cancel: 'CANCEL',
       random: 'Random',
       custom: 'Custom',
-      customPlaceholder: 'Type your custom topic here',
+      customPlaceholder: 'Type your custom topic here (starting your text with "places in " is recommended)',
       poiWorld: 'Points of interest in World',
       poiEurope: 'Points of interest in Europe',
       poiUSA: 'Points of interest in USA',

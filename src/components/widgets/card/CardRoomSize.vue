@@ -1,7 +1,7 @@
 <template>
   <v-card color="#061422">
     <v-card-title>
-      <span id="card-title">Set a room size.</span>
+      <span id="card-title">{{ $t('CardRoomSize.title') }}</span>
     </v-card-title>
     <v-card-text>
       <v-container>
@@ -20,20 +20,34 @@
       <v-btn
         dark
         depressed
-        color="#FF5252"
-        @click="setRoomSize">NEXT</v-btn>
+        color="#43B581"
+        @click="setRoomSize">{{ $t('CardRoomSize.next') }}</v-btn>
       <v-btn
         dark
         depressed
-        color="#43B581"
-        @click="cancel">CANCEL</v-btn>
+        color="#FF5252"
+        @click="cancel">{{ $t('CardRoomSize.cancel') }}</v-btn>
     </v-card-actions>
   </v-card>
 </template>
 
-<script>
-  export default {
-    data() {
+<script lang="ts">
+  import Vue from 'vue'
+
+  declare interface RoomSizeItem {
+    text: string,
+    value: number,
+  }
+
+  export type DataType = {
+    roomSize: number,
+    roomSizeItems: RoomSizeItem[], 
+  }
+
+  export default Vue.extend({
+    name: 'CardRoomSize',
+
+    data(): DataType {
       return {
         roomSize: 2,
         roomSizeItems: [
@@ -53,19 +67,20 @@
             text: '5',
             value: 5,
           },          
-        ],
+        ],        
       }
     },
+
     methods: {
-      setRoomSize() {
-        // Pass room size to parent component
+      setRoomSize(): void {
         this.$emit('setRoomSize', this.roomSize)
       },
-      cancel() {
+
+      cancel(): void {
         this.$emit('cancel')
       }
     }
-  }
+  })
 </script>
 
 <style scoped>

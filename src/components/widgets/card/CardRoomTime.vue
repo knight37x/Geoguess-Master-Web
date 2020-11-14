@@ -1,7 +1,7 @@
 <template>
   <v-card color="#061422">
     <v-card-title>
-      <span id="card-title">Set a time limitation.</span>
+      <span id="card-title">{{ $t('CardRoomTime.title') }}</span>
     </v-card-title>
     <v-card-text>
       <v-container>
@@ -25,25 +25,41 @@
       <v-btn
         dark
         depressed
-        color="#FF5252"
-        @click="setTimeLimitation">NEXT</v-btn>
+        color="#43B581"
+        @click="setTimeLimitation">{{ $t('CardRoomTime.next') }}</v-btn>
       <v-btn
         dark
         depressed
-        color="#43B581"
-        @click="cancel">CANCEL</v-btn>
+        color="#FF5252"
+        @click="cancel">{{ $t('CardRoomTime.cancel') }}</v-btn>
     </v-card-actions>
   </v-card>
 </template>
 
-<script>
-  export default {
-    data() {
+<script lang="ts">
+  import Vue from 'vue'
+
+  import { TranslateResult } from 'vue-i18n'
+
+  declare interface timeLimitationItem {
+    text: string | TranslateResult,
+    value: number,
+  }
+
+  export type DataType = {
+    timeLimitation: number,
+    timeLimitationItems: timeLimitationItem[],
+  }
+
+  export default Vue.extend({
+    name: 'CardRoomTime',
+
+    data(): DataType {
       return {
         timeLimitation: 0,
         timeLimitationItems: [
           {
-            text: 'Infinite',
+            text: this.$t('CardRoomTime.infinite'),
             value: 0,
           },
           {
@@ -89,16 +105,17 @@
         ],
       }
     },
+
     methods: {
       setTimeLimitation() {
-        // Pass time limitation to parent component
         this.$emit('setTimeLimitation', this.timeLimitation)
       },
+
       cancel() {
         this.$emit('cancel')
-      }
+      },    
     }
-  }
+  })
 </script>
 
 <style scoped>

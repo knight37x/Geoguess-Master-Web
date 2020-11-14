@@ -7,6 +7,27 @@
       :remainingTime="remainingTime" />
     <div id="street-view-container">
       <div id="street-view">
+        <v-btn 
+          id="reset-button"
+          icon
+          color="#FFFFFF"
+          @click="resetLocation">
+          <v-icon size="36">mdi-flag</v-icon>
+        </v-btn>
+        <v-btn 
+          id="zoom-in-button"
+          icon
+          color="#FFFFFF"
+          @click="zoomIn">
+          <v-icon size="36">mdi-plus</v-icon>
+        </v-btn>
+        <v-btn 
+          id="zoom-out-button"
+          icon
+          color="#FFFFFF"
+          @click="zoomOut">
+          <v-icon size="36">mdi-minus</v-icon>
+        </v-btn>
       </div>
       <MapsWithFriends
         ref="map"
@@ -29,29 +50,58 @@
       :dialogMessage="dialogMessage"
       :dialogTitle="dialogTitle"
       :dialogText="dialogText" />
-  </div>
+  </div>  
 </template>
 
-<script>
+<script lang="ts">
+  import Vue, { PropType } from 'vue'
+
   import firebase from 'firebase/app'
   import 'firebase/database'
+  import { TranslateResult } from 'vue-i18n'
 
-  import HeaderGame from '@/components/widgets/bar/HeaderGame'
-  import MapsWithFriends from '@/components/MapsWithFriends'
-  import DialogMessage from '@/components/widgets/dialog/DialogMessage'
+  import HeaderGame from '@/components/widgets/bar/HeaderGame.vue'
+  import MapsWithFriends from '@/components/MapsWithFriends.vue'
+  import DialogMessage from '@/components/widgets/dialog/DialogMessage.vue'
 
-  export default {
-    props: [
-      'roomName',
-      'playerNumber',
-    ],
+  export type DataType = {
+    panorama: google.maps.StreetViewPanorama | null,
+    randomLatLng: google.maps.LatLng | null,
+    randomLat: number | null,
+    randomLng: number | null,
+    score: number,
+    scoreHeader: number,
+    round: number,
+    timeLimitation: number,
+    remainingTime: number,
+    hasTimerStarted: boolean,
+    hasLocationSelected: boolean,
+    overlay: boolean,
+    room: firebase.database.Reference | null,
+    placesService: google.maps.places.PlacesService | null,
+    isReady: boolean,
+    dialogMessage: boolean,
+    dialogTitle: TranslateResult,
+    dialogText: TranslateResult,
+  }
+
+  export default Vue.extend({
+    name: 'StreetViewWithFriends',
+
+    props: {
+      roomName: String,
+      playerNumber: Number,
+    },
+
     components: {
       HeaderGame,
       MapsWithFriends,
       DialogMessage,
     },
-    data() {
+
+    data(): DataType {
       return {
+        panorama: null,
         randomLatLng: null,
         randomLat: null,
         randomLng: null,
@@ -67,39 +117,40 @@
         placesService: null,
         isReady: false,
         dialogMessage: true,
-        dialogTitle: 'Waiting for other players...',
+        dialogTitle: this.$t('StreetViewWithFriends.waitForOtherPlayers'),
         dialogText: '',
       }
     },
+
     methods: {
-      loadStreetView() {
-        this.getNextGuessLocation(latLng => {
-          var service = new google.maps.StreetViewService()
+      loadStreetView(): void {
+        this.getNextGuessLocation((latLng: google.maps.LatLng) => {
+          let service = new google.maps.StreetViewService()
           service.getPanorama({
             location: latLng,
-            preference: 'nearest',
+            preference: google.maps.StreetViewPreference.NEAREST,
             radius: 100000,
-            source: 'outdoor',
+            source: google.maps.StreetViewSource.OUTDOOR,
           }, this.checkStreetView)
         })
       },
-      loadDecidedStreetView() {
-        // Other players load the decided streetview the first player loaded
-        var service = new google.maps.StreetViewService()
+
+      loadDecidedStreetView(): void {
+        let service = new google.maps.StreetViewService()
         service.getPanorama({
           location: {
-            lat: this.randomLat,
-            lng: this.randomLng,
+            lat: this.randomLat!,
+            lng: this.randomLng!,
           },
-          preference: 'nearest',
+          preference: google.maps.StreetViewPreference.NEAREST,
           radius: 100000,
-          source: 'outdoor',
-        }, this.checkStreetView)        
+          source: google.maps.StreetViewSource.OUTDOOR,
+        }, this.checkStreetView)    
       },
-      getNextGuessLocation(locationCallback) {
-        this.room.once('value', (snapshot) => {
-          var topic = snapshot.child('roomTopic').val()
-          var rand = this.getRandomLatLng();
+      getNextGuessLocation(locationCallback: (latLng: google.maps.LatLng) => void) {
+        this.room!.once('value', (snapshot) => {
+          let topic = snapshot.child('roomTopic').val()
+          let rand = this.getRandomLatLng();
           if(topic === 'random') {
             locationCallback(rand)
             return
@@ -111,13 +162,16 @@
           }
           // query Maps
           if(!this.placesService) {
-            this.placesService = new google.maps.places.PlacesService(document.getElementById('street-view'))
+            this.placesService = new google.maps.places.PlacesService(document.getElementById('street-view') as HTMLDivElement)
           }
-          var request = {
+          let request = {
             query: topic,
           }
-          var results = [];
-          this.placesService.textSearch(request, (result, status, pagination) => {
+          let results: google.maps.LatLng[] = [];
+          console.log('querry google maps with', request);
+          this.placesService.textSearch(request, (result: google.maps.places.PlaceResult[],
+                                                  status: google.maps.places.PlacesServiceStatus,
+                                                  pagination: google.maps.places.PlaceSearchPagination) => {
             if(status === google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT && results.length > 5) {
               this.getRandomGuessLocationFromList(results, locationCallback)
               return
@@ -125,7 +179,7 @@
               locationCallback(rand)
               return
             }
-            results = results.concat(result.map(r => r.geometry.location))
+            results = results.concat(result.map(r => r.geometry!.location))
             if(pagination && pagination.hasNextPage && results.length < 100) {
               setTimeout(() => {
                 pagination.nextPage()
@@ -138,41 +192,42 @@
           })
         })
       },
-      getRandomGuessLocationFromList(list, locationCallback) {
-        var index = Math.round(Math.random() * list.length)
+      getRandomGuessLocationFromList(list: google.maps.LatLng[], locationCallback: (latLng: google.maps.LatLng) => void) {
+        let index = Math.round(Math.random() * list.length)
         locationCallback(list[index])
       },
       getRandomLatLng() {
         // Generate a random latitude and longitude
-        var lat = (Math.random() * 170) - 85
-        var lng = (Math.random() * 360) - 180
+        let lat = (Math.random() * 170) - 85
+        let lng = (Math.random() * 360) - 180
         return new google.maps.LatLng(lat, lng)
       },
-      checkStreetView(data, status) {
-        // Generate random streetview until the valid one is generated
-        if (status == 'OK') {
-          var panorama = new google.maps.StreetViewPanorama(document.getElementById('street-view'))
-          panorama.setOptions({
+
+      checkStreetView(data: google.maps.StreetViewPanoramaData | null, status: google.maps.StreetViewStatus): void {
+        if (status === google.maps.StreetViewStatus.OK) {
+          this.panorama = new google.maps.StreetViewPanorama(document.getElementById('street-view') as HTMLElement)
+          this.panorama.setOptions({
+            zoomControl: false,
             addressControl: false,
             fullscreenControl: false,
             motionTracking: false,
             motionTrackingControl: false,
             showRoadLabels: false,
           })
-          panorama.setPano(data.location.pano)
-          panorama.setPov({
+          this.panorama.setPano(data!.location!.pano!)
+          this.panorama.setPov({
             heading: 270,
             pitch: 0,
           })
 
           // Save the location's latitude and longitude
-          this.randomLatLng = data.location.latLng
+          this.randomLatLng = data!.location!.latLng! as google.maps.LatLng
 
-          this.randomLat = this.randomLatLng.lat()
-          this.randomLng = this.randomLatLng.lng()
+          this.randomLat = this.randomLatLng!.lat()
+          this.randomLng = this.randomLatLng!.lng()
 
                   // Put the streetview's location into firebase
-          this.room.child('streetView/round' + this.round).set({
+          this.room!.child('streetView/round' + this.round).set({
             latitude: this.randomLat,
             longitude:this.randomLng
           })
@@ -181,7 +236,8 @@
           this.loadStreetView()
         }
       },
-      startTimer() {
+
+      startTimer(): void {
         if (!this.hasLocationSelected) {
           if (this.remainingTime > 0) {
             setTimeout(() => {
@@ -190,146 +246,158 @@
             }, 1000)
           } else {
             // Set a random location if the player didn't select a location in time
-            this.$refs.map.selectRandomLocation(this.getRandomLatLng())
+            let mapRef = this.$refs.map as any
+            mapRef.selectRandomLocation(this.getRandomLatLng())
           }
         }
       },
-      updateScore(distance) {
-        // Update the score and save it into firebase
+
+      updateScore(distance: number): void {
         this.hasLocationSelected = true
         this.score += distance
-        this.room.child('finalScore/player' + this.playerNumber).set(this.score)
+        this.room!.child('finalScore/player' + this.playerNumber).set(this.score)
 
-        // Wait for other players to guess locations
-        this.dialogTitle = 'Waiting for other players...'
+        this.dialogTitle = this.$t('StreetViewWithFriends.waitForOtherPlayers') as TranslateResult
         this.dialogMessage = true
       },
-      showResult() {
-        this.scoreHeader = this.score  // Update the score on header after every players guess locations
+
+      showResult(): void {
+        this.scoreHeader = this.score
         this.dialogMessage = false
         this.overlay = true
       },
-      goToNextRound() {
+
+      goToNextRound(): void {
         // Reset
         this.randomLatLng = null
         this.overlay = false
-        this.isReady = false  // Turn off the flag so the click event can be added in the next round
-        this.dialogMessage = true  // Show the dialog while waiting for other players
+        this.isReady = false
+        this.dialogMessage = true
         this.hasTimerStarted = false
         this.hasLocationSelected = false
-
-        // Update the round
         this.round += 1
 
-        if (this.playerNumber == 1) {
+        if (this.playerNumber === 1) {
           this.loadStreetView()
         } else {
-          // Trigger listener and load the next streetview
-          this.room.child('trigger/player' + this.playerNumber).set(this.round)
-          this.$refs.map.startNextRound()
+          this.room!.child('trigger/player' + this.playerNumber).set(this.round)
+          let mapRef = this.$refs.map as any
+          mapRef.startNextRound()
         }
-
       },
-      exitGame() {
-        // Disable the listener and force the players to exit the game
-        this.dialogTitle = 'Redirect to Home Page...'
-        this.dialogText = 'You are forced to exit the game. Redirect to home page after 5 seconds...'
+
+      exitGame(): void {
+        this.dialogTitle = this.$t('StreetViewWithFriends.redirectToHomePage') as TranslateResult
+        this.dialogText = this.$t('StreetViewWithFriends.exitGame') as TranslateResult
         this.dialogMessage = true
-        this.room.off()
-        this.room.remove()
-        
+
+        if (this.room !== null) {
+          this.room.off()
+          this.room.remove()
+        }      
         setTimeout(() => {
           this.$router.push({ name: 'home' })
         }, 5000)
       },
-      finishGame() {
-        // Open the dialog while waiting for other players to finsih the game
-        this.dialogTitle = 'Waiting for other players to finish the game...'
+
+      finishGame(): void {
+        this.dialogTitle = this.$t('StreetViewWithFriends.waitForOtherPlayersToFinish') as TranslateResult
         this.dialogText = ''
         this.dialogMessage = true
-      }
+      },
+
+      resetLocation(): void {
+        this.panorama!.setPosition(this.randomLatLng!)
+      },
+
+      zoomIn(): void {
+        let currentLevel = this.panorama!.getZoom()
+        currentLevel++
+        this.panorama!.setZoom(currentLevel)
+      },
+
+      zoomOut(): void {
+        let currentLevel = this.panorama!.getZoom()
+        currentLevel--
+        this.panorama!.setZoom(currentLevel)
+      },
     },
-    mounted() {
+
+    mounted(): void {
       this.room = firebase.database().ref(this.roomName)
-      if (this.playerNumber == 1) {
+      if (this.playerNumber === 1) {
         this.loadStreetView()
       }
 
-      // Set a room name if it's null to detect when the user refresh the page
-      if (this.roomName == null) {
-        this.roomName = 'defaultRoomName'
-      }
+      // Set a default room name if it's null to check if the user refresh the page
+      if (this.roomName === null || this.roomName === undefined) {
+        this.exitGame()
+      } else {
 
-      this.room.child('active').set(true)
-      this.room.on('value', (snapshot) => {
-        // Check if the room is already removed
-        if (snapshot.hasChild('active')) {
+        this.room!.child('active').set(true)
+        this.room!.on('value', (snapshot) => {
+          // Check if the room is already removed
+          if (snapshot.hasChild('active')) {
 
-          // Put the player into the current round node if the player is not put yet
-          if (!snapshot.child('round' + this.round).hasChild('player' + this.playerNumber)) {
+            // Put the player into the current round node if the player is not put yet
+            if (!snapshot.child('round' + this.round).hasChild('player' + this.playerNumber)) {
 
-            this.room.child('round' + this.round).child('player' + this.playerNumber).set(0)
+              this.room!.child('round' + this.round).child('player' + this.playerNumber).set(0)
 
-            // Other players load the streetview the first player loaded earlier
-            if (this.playerNumber != 1) {
-              this.randomLat = snapshot.child('streetView/round' + this.round + '/latitude').val()
-              this.randomLng = snapshot.child('streetView/round' + this.round + '/longitude').val()
+              // Other players load the streetview the first player loaded earlier
+              if (this.playerNumber !== 1) {
+                this.randomLat = snapshot.child('streetView/round' + this.round + '/latitude').val()
+                this.randomLng = snapshot.child('streetView/round' + this.round + '/longitude').val()
 
-              this.loadDecidedStreetView()
-            }
-          }
-
-          // Enable guess button when every players are put into the current round's node
-          if (snapshot.child('round' + this.round).numChildren() == snapshot.child('size').val()) {
-
-            // Close the dialog when evryone is ready
-            if (this.isReady == false) {
-              this.dialogMessage = false
-            }
-
-            this.isReady = true
-            this.$refs.map.startNextRound()
-
-            // Countdown timer starts
-            this.timeLimitation = snapshot.child('timeLimitation').val() * 60
-
-            if (this.timeLimitation != 0) {
-              if (!this.hasTimerStarted) {
-                this.remainingTime = this.timeLimitation
-                this.startTimer()
-                this.hasTimerStarted = true
+                this.loadDecidedStreetView()
               }
             }
+
+            // Enable guess button when all players are put into the current round's node
+            if (snapshot.child('round' + this.round).numChildren() === snapshot.child('size').val()) {
+              // Close the dialog when all players get ready
+              if (this.isReady === false) {
+                this.dialogMessage = false
+              }
+
+              this.isReady = true
+              let mapRef = this.$refs.map as any
+              mapRef.startNextRound()
+              this.timeLimitation = snapshot.child('timeLimitation').val() * 60
+
+              if (this.timeLimitation !== 0) {
+                if (!this.hasTimerStarted) {
+                  this.remainingTime = this.timeLimitation
+                  this.startTimer()
+                  this.hasTimerStarted = true
+                }
+              }
+            }
+
+            // Delete the room when all players finished the game
+            if (snapshot.child('isGameDone').numChildren() === snapshot.child('size').val()) {
+              this.room!.child('active').remove()
+            }
+          } else {
+            // Force the players to exit the game when 'Active' node has been removed
+            this.exitGame()
           }
+        })
 
-          // Delete the room when everyone finished the game
-          if (snapshot.child('isGameDone').numChildren() == snapshot.child('size').val()) {
-            this.room.child('active').remove()
-          }
-
-        } else {
-          // Force the players to exit the game when 'Active' is removed
-          this.exitGame()
-        }
-      })
-
-      window.addEventListener('popstate', (event) => {
         // Remove the room when the player pressed the back button on browser
-        this.room.child('active').remove()
-        this.room.off()
-      })
+        window.addEventListener('popstate', (event) => {
+          this.room!.child('active').remove()
+          this.room!.off()
+        })
 
-      window.addEventListener('beforeunload', (event) => {
         // Remove the room when the player refreshes the window
-        this.room.child('active').remove()
-      })
-
-      // Force to exit the game if it's still the name this is set programmatically
-      if (this.roomName == 'defaultRoomName') {
-        this.room.child('active').remove()
+        window.addEventListener('beforeunload', (event) => {
+          this.room!.child('active').remove()
+          this.room!.off()
+        })
       }
     }
-  }
+  })
 </script>
 
 <style scoped>
@@ -353,12 +421,44 @@
     position: relative;
     min-height: 100%;
     width: 100%;
-  } 
+  }
+
+  #reset-button, #zoom-in-button, #zoom-out-button {
+    position: absolute;
+    z-index: 2;
+    background-color: #212121;
+    opacity: 0.8;
+    right: 12px;
+  }
+
+  #reset-button {
+    bottom: 200px;
+  }
+
+  #zoom-in-button {
+    bottom: 150px;
+  }
+
+  #zoom-out-button {
+    bottom: 100px;
+  }
 
   @media (max-width: 450px) {
     #game-page {
       position: fixed;
       height: 92%;
     }
-  }
+
+    #reset-button {
+      bottom: 120px;
+    }
+
+    #zoom-in-button {
+      bottom: 70px;
+    }
+
+    #zoom-out-button {
+      bottom: 20px;
+    }
+  } 
 </style>

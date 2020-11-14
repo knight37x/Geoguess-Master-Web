@@ -1,7 +1,7 @@
 <template>
   <v-card color="#061422">
     <v-card-title>
-      <span id="card-title">Type a room name.</span>
+      <span id="card-title">{{ $t('CardRoomName.title') }}</span>
     </v-card-title>
     <v-card-text>
       <v-container>
@@ -22,37 +22,47 @@
       <v-btn
         dark
         depressed
-        color="#FF5252"
-        @click="searchRoom">NEXT</v-btn>
+        color="#43B581"
+        @click="searchRoom">{{ $t('CardRoomName.next') }}</v-btn>
       <v-btn
         dark
         depressed
-        color="#43B581"
-        @click="cancel">CANCEL</v-btn>
+        color="#FF5252"
+        @click="cancel">{{ $t('CardRoomName.cancel') }}</v-btn>
     </v-card-actions>
   </v-card>
 </template>
 
-<script>
-  export default {
-    props: [
-      "errorMessage",
-    ],
-    data() {
+<script lang="ts">
+  import Vue, { PropType } from 'vue'
+
+  export type DataType = {
+    roomName: string,
+  }
+
+  export default Vue.extend({
+    name: 'CardRoomName',
+
+    props: {
+      errorMessage: String,
+    },
+
+    data(): DataType {
       return {
         roomName: '',
       }
     },
+
     methods: {
-      searchRoom() {
-        // Pass room name to parent component
+      searchRoom(): void {
         this.$emit('searchRoom', this.roomName)
       },
-      cancel() {
+
+      cancel(): void {
         this.$emit('cancel')
-      }
-    }
-  }
+      },
+    },
+  })
 </script>
 
 <style scoped>
@@ -61,5 +71,5 @@
     font-weight: 500;
     color: #FFFFFF;
     opacity: 0.9;
-  } 
+  }   
 </style>

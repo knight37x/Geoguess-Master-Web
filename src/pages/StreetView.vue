@@ -5,6 +5,27 @@
       :round="round" />
     <div id="street-view-container">
       <div id="street-view">
+        <v-btn 
+          id="reset-button"
+          icon
+          color="#FFFFFF"
+          @click="resetLocation">
+          <v-icon size="36">mdi-flag</v-icon>
+        </v-btn>
+        <v-btn 
+          id="zoom-in-button"
+          icon
+          color="#FFFFFF"
+          @click="zoomIn">
+          <v-icon size="36">mdi-plus</v-icon>
+        </v-btn>
+        <v-btn 
+          id="zoom-out-button"
+          icon
+          color="#FFFFFF"
+          @click="zoomOut">
+          <v-icon size="36">mdi-minus</v-icon>
+        </v-btn>
       </div>
       <Maps
         :randomLatLng="randomLatLng"
@@ -21,94 +42,121 @@
   </div>
 </template>
 
-<script>
-  import HeaderGame from '@/components/widgets/bar/HeaderGame'
-  import Maps from '@/components/Maps'
+<script lang="ts">
+  import Vue from 'vue'
 
-  export default {
+  import HeaderGame from '@/components/widgets/bar/HeaderGame.vue'
+  import Maps from '@/components/Maps.vue'
+
+  export type DataType = {
+    randomLatLng: google.maps.LatLng | null,
+    panorama: google.maps.StreetViewPanorama | null,
+    score: number,
+    round: number,
+    overlay: boolean,
+  }
+
+  export default Vue.extend({
+    name: 'StreetView',
+
     components: {
       HeaderGame,
       Maps,
     },
-    data() {
+
+    data(): DataType {
       return {
         randomLatLng: null,
+        panorama: null,
         score: 0,
         round: 1,
         overlay: false,
       }
     },
+
     methods: {
-      loadStreetView() {
-        var service = new google.maps.StreetViewService()
+      loadStreetView(): void {
+        let service = new google.maps.StreetViewService()
         service.getPanorama({
           location: this.getRandomLatLng(),
-          preference: 'nearest',
+          preference: google.maps.StreetViewPreference.NEAREST,
           radius: 100000,
-          source: 'outdoor',
+          source: google.maps.StreetViewSource.OUTDOOR,
         }, this.checkStreetView)
       },
-      getRandomLatLng() {
-        // Generate a random latitude and longitude
-        var lat = (Math.random() * 170) - 85
-        var lng = (Math.random() * 360) - 180
+
+      getRandomLatLng(): google.maps.LatLng  {
+        let lat = (Math.random() * 170) - 85
+        let lng = (Math.random() * 360) - 180
         return new google.maps.LatLng(lat, lng)
       },
-      checkStreetView(data, status) {
-        // Generate random streetview until the valid one is generated
-        if (status == 'OK') {
-          var panorama = new google.maps.StreetViewPanorama(document.getElementById('street-view'))
-          panorama.setOptions({
+
+      checkStreetView(data: google.maps.StreetViewPanoramaData | null, status: google.maps.StreetViewStatus): void {
+        if (status === google.maps.StreetViewStatus.OK) {
+          this.panorama = new google.maps.StreetViewPanorama(document.getElementById('street-view')! as HTMLElement)
+          this.panorama!.setOptions({
+            zoomControl: false,
             addressControl: false,
             fullscreenControl: false,
             motionTracking: false,
             motionTrackingControl: false,
             showRoadLabels: false,
           })
-          panorama.setPano(data.location.pano)
-          panorama.setPov({
+          this.panorama!.setPano(data!.location!.pano!)
+          this.panorama!.setPov({
             heading: 270,
             pitch: 0,
           })
 
-          // Save the location's latitude and longitude
-          this.randomLatLng = data.location.latLng
+          this.randomLatLng = data!.location!.latLng! as google.maps.LatLng
         } else {
           this.loadStreetView()
         }
       },
-      updateScore(distance) {
+
+      updateScore(distance: number): void {
         this.score += distance
         this.overlay = true
       },
-      goToNextRound() {
-        // Reset
+
+      goToNextRound(): void {
         this.randomLatLng = null
         this.overlay = false
-
-        // Update the round
         this.round += 1
 
-        // Replace streetview with new one
         this.loadStreetView()
       },
-      playAgain() {
-        // Reset
+
+      playAgain(): void {
         this.randomLatLng = null
-        this.distance = null
         this.score = 0
         this.round = 1
         this.overlay = false
 
-        // Load streetview
         this.loadStreetView()
+      },
+
+      resetLocation(): void {
+        this.panorama!.setPosition(this.randomLatLng!)
+      },
+
+      zoomIn(): void {
+        let currentLevel = this.panorama!.getZoom()
+        currentLevel++
+        this.panorama!.setZoom(currentLevel)
+      },
+
+      zoomOut(): void {
+        let currentLevel = this.panorama!.getZoom()
+        currentLevel--
+        this.panorama!.setZoom(currentLevel)
       }
     },
-    mounted() {
-      // Generate the first streetview and check if it's valid
+
+    mounted(): void {
       this.loadStreetView()
-    },
-  }
+    }
+  })
 </script>
 
 <style scoped>
@@ -134,10 +182,42 @@
     width: 100%;
   }
 
+  #reset-button, #zoom-in-button, #zoom-out-button {
+    position: absolute;
+    z-index: 2;
+    background-color: #212121;
+    opacity: 0.8;
+    right: 12px;
+  }
+
+  #reset-button {
+    bottom: 200px;
+  }
+
+  #zoom-in-button {
+    bottom: 150px;
+  }
+
+  #zoom-out-button {
+    bottom: 100px;
+  }
+
   @media (max-width: 450px) {
     #game-page {
       position: fixed;
       height: 92%;
+    }
+
+    #reset-button {
+      bottom: 120px;
+    }
+
+    #zoom-in-button {
+      bottom: 70px;
+    }
+
+    #zoom-out-button {
+      bottom: 20px;
     }
   }
 </style>

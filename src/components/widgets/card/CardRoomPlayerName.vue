@@ -1,7 +1,7 @@
 <template>
   <v-card color="#061422">
     <v-card-title>
-      <span id="card-title">Type a player name.</span>
+      <span id="card-title">{{ $t('CardRoomPlayerName.title') }}</span>
     </v-card-title>
     <v-card-text>
       <v-container>
@@ -20,34 +20,43 @@
       <v-btn
         dark
         depressed
-        color="#FF5252"
-        @click="setPlayerName">NEXT</v-btn>
+        color="#43B581"
+        @click="setPlayerName">{{ $t('CardRoomPlayerName.next') }}</v-btn>
       <v-btn
         dark
         depressed
-        color="#43B581"
-        @click="cancel">CANCEL</v-btn>
+        color="#FF5252"
+        @click="cancel">{{ $t('CardRoomPlayerName.cancel') }}</v-btn>
     </v-card-actions>
   </v-card>
 </template>
 
-<script>
-  export default {
-    data() {
+<script lang="ts">
+  import Vue from 'vue'
+
+  export type Datatype = {
+    playerName: string,
+  }
+
+  export default Vue.extend({
+    name: 'CardRoomPlayerName',
+    
+    data(): Datatype {
       return {
-        playerName: '',     
+        playerName: '',
       }
     },
+
     methods: {
-      setPlayerName() {
-        // Pass room name to parent component
+      setPlayerName(): void {
         this.$emit('setPlayerName', this.playerName)
       },
+
       cancel() {
         this.$emit('cancel')
       }
-    }
-  }
+    }    
+  })
 </script>
 
 <style scoped>

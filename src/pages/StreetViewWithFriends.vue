@@ -179,7 +179,7 @@
               locationCallback(rand)
               return
             }
-            results = results.concat(result.map(r => r.geometry!.location))
+            results = results.concat(result.map(r => r.geometry!.location).filter(r => r))
             if(pagination && pagination.hasNextPage && results.length < 100) {
               setTimeout(() => {
                 pagination.nextPage()

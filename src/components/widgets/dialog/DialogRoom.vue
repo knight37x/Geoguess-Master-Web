@@ -21,6 +21,7 @@
       @setRoomSize="setRoomSize"
       @setTimeLimitation="setTimeLimitation"
       @setPlayerName="setPlayerName"
+      @setRoomTopic="setTopic"
       @cancel="cancel" />
   </v-dialog>
 </template>
@@ -36,6 +37,7 @@
   import CardRoomSize from '@/components/widgets/card/CardRoomSize.vue'
   import CardRoomTime from '@/components/widgets/card/CardRoomTime.vue'
   import CardRoomPlayerName from '@/components/widgets/card/CardRoomPlayerName.vue'
+  import CardRoomTopic from '@/components/widgets/card/CardRoomTopic.vue'
 
   export type DataType = {
       dialogRoom: boolean,
@@ -44,6 +46,7 @@
       roomName: string,
       currentComponent: string,
       playerNumber: number,
+      roomTopic: string,
   }
 
   export default Vue.extend({
@@ -57,6 +60,7 @@
         roomName: '',
         currentComponent: 'roomName',
         playerNumber: 0,
+        roomTopic: 'random',
       }
     },
 
@@ -65,6 +69,7 @@
       'roomSize': CardRoomSize,
       'timeLimitation': CardRoomTime,
       'playerName': CardRoomPlayerName,
+      'roomTopic': CardRoomTopic,
     },
 
     methods: {
@@ -128,14 +133,16 @@
       setPlayerName(playerName: string): void {
         this.room!.child('playerName/player' + this.playerNumber).set(playerName, (error) => {
           if (!error) {
-            // Start the game
-            this.$router.push({
-              name: 'with-friends',
-              params: { 
-                roomName: this.roomName, 
-                playerNumber: String(this.playerNumber), 
-              }
-            })
+            this.currentComponent = 'roomTopic'
+          }
+        })
+      },
+      setTopic(topic: string) {
+        this.room!.update({
+          roomTopic: topic
+        }, (error) => {
+          if (!error) {
+            this.startGame()
           }
         })
       },
@@ -155,6 +162,16 @@
             this.room!.child('playerName/player' + this.playerNumber).remove()
           }
         }
+      },
+      startGame() {
+        // Start the game
+        this.$router.push({
+          name: 'with-friends',
+          params: {
+            roomName: this.roomName,
+            playerNumber: String(this.playerNumber),
+          }
+        })
       }
     }
   })

@@ -78,6 +78,7 @@
     hasLocationSelected: boolean,
     overlay: boolean,
     room: firebase.database.Reference | null,
+    placesService: google.maps.places.PlacesService | null,
     isReady: boolean,
     dialogMessage: boolean,
     dialogTitle: TranslateResult,
@@ -113,6 +114,7 @@
         hasLocationSelected: false,
         overlay: false,
         room: null,
+        placesService: null,
         isReady: false,
         dialogMessage: true,
         dialogTitle: this.$t('StreetViewWithFriends.waitForOtherPlayers'),
@@ -122,13 +124,15 @@
 
     methods: {
       loadStreetView(): void {
-        let service = new google.maps.StreetViewService()
-        service.getPanorama({
-          location: this.getRandomLatLng(),
-          preference: google.maps.StreetViewPreference.NEAREST,
-          radius: 100000,
-          source: google.maps.StreetViewSource.OUTDOOR,
-        }, this.checkStreetView)
+        this.getNextGuessLocation((latLng: google.maps.LatLng) => {
+          let service = new google.maps.StreetViewService()
+          service.getPanorama({
+            location: latLng,
+            preference: google.maps.StreetViewPreference.NEAREST,
+            radius: 100000,
+            source: google.maps.StreetViewSource.OUTDOOR,
+          }, this.checkStreetView)
+        })
       },
 
       loadDecidedStreetView(): void {
@@ -143,8 +147,57 @@
           source: google.maps.StreetViewSource.OUTDOOR,
         }, this.checkStreetView)    
       },
-
-      getRandomLatLng(): google.maps.LatLng {
+      getNextGuessLocation(locationCallback: (latLng: google.maps.LatLng) => void) {
+        this.room!.once('value', (snapshot) => {
+          let topic = snapshot.child('roomTopic').val()
+          let rand = this.getRandomLatLng();
+          if(topic === 'random') {
+            locationCallback(rand)
+            return
+          }
+          let locallyStoredString = localStorage.getItem(topic);
+          if(locallyStoredString) {
+            this.getRandomGuessLocationFromList(JSON.parse(locallyStoredString), locationCallback)
+            return
+          }
+          // query Maps
+          if(!this.placesService) {
+            this.placesService = new google.maps.places.PlacesService(document.getElementById('street-view') as HTMLDivElement)
+          }
+          let request = {
+            query: topic,
+          }
+          let results: google.maps.LatLng[] = [];
+          console.log('querry google maps with', request);
+          this.placesService.textSearch(request, (result: google.maps.places.PlaceResult[],
+                                                  status: google.maps.places.PlacesServiceStatus,
+                                                  pagination: google.maps.places.PlaceSearchPagination) => {
+            if(status === google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT && results.length > 5) {
+              this.getRandomGuessLocationFromList(results, locationCallback)
+              return
+            } else if(status !== google.maps.places.PlacesServiceStatus.OK) {
+              locationCallback(rand)
+              return
+            }
+            results = results.concat(result.map(r => r.geometry!.location))
+            if(pagination && pagination.hasNextPage && results.length < 100) {
+              setTimeout(() => {
+                pagination.nextPage()
+              }, 1000)
+            } else {
+              // no more pages to load, so select a random one and store it in local storage
+              localStorage.setItem(topic, JSON.stringify(results))
+              this.getRandomGuessLocationFromList(results, locationCallback)
+            }
+          })
+        })
+      },
+      getRandomGuessLocationFromList(list: google.maps.LatLng[], locationCallback: (latLng: google.maps.LatLng) => void) {
+        let index = Math.round(Math.random() * list.length)
+        locationCallback(list[index])
+      },
+      getRandomLatLng() {
+        // Generate a random latitude and longitude
         let lat = (Math.random() * 170) - 85
         let lng = (Math.random() * 360) - 180
         return new google.maps.LatLng(lat, lng)
@@ -170,10 +223,13 @@
           // Save the location's latitude and longitude
           this.randomLatLng = data!.location!.latLng! as google.maps.LatLng
 
-          // Put the streetview's location into firebase
+          this.randomLat = this.randomLatLng!.lat()
+          this.randomLng = this.randomLatLng!.lng()
+
+                  // Put the streetview's location into firebase
           this.room!.child('streetView/round' + this.round).set({
-            latitude: this.randomLatLng!.lat(),
-            longitude:this.randomLatLng!.lng(),
+            latitude: this.randomLat,
+            longitude:this.randomLng
           })
 
         } else {
@@ -268,6 +324,7 @@
     },
 
     mounted(): void {
+      this.room = firebase.database().ref(this.roomName)
       if (this.playerNumber === 1) {
         this.loadStreetView()
       }
@@ -276,7 +333,7 @@
       if (this.roomName === null || this.roomName === undefined) {
         this.exitGame()
       } else {
-        this.room = firebase.database().ref(this.roomName)
+
         this.room!.child('active').set(true)
         this.room!.on('value', (snapshot) => {
           // Check if the room is already removed

@@ -125,6 +125,16 @@
           timeLimitation: timeLimitation
         }, (error) => {
           if (!error) {
+            this.currentComponent = 'roomTopic'
+          }
+        })
+      },
+
+      setTopic(topic: string) {
+        this.room!.update({
+          roomTopic: topic
+        }, (error) => {
+          if (!error) {
             this.currentComponent = 'playerName'
           }
         })
@@ -132,15 +142,6 @@
 
       setPlayerName(playerName: string): void {
         this.room!.child('playerName/player' + this.playerNumber).set(playerName, (error) => {
-          if (!error) {
-            this.currentComponent = 'roomTopic'
-          }
-        })
-      },
-      setTopic(topic: string) {
-        this.room!.update({
-          roomTopic: topic
-        }, (error) => {
           if (!error) {
             this.startGame()
           }

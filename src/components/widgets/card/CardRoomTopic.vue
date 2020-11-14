@@ -12,7 +12,13 @@
               :items="roomTopicItems"></v-select>
         </v-row>
         <v-row v-if="roomTopic === 'custom'">
-          <input id="custom-input" v-model="customTopic" :placeholder="$t('CardRoomTopic.customPlaceholder')">
+          <v-text-field
+              dark
+              id="custom-input"
+              maxlength="50"
+              v-model="customTopic"
+              :placeholder="$t('CardRoomTopic.customPlaceholder')"
+              @keyup.enter="setRoomTopic"></v-text-field>
         </v-row>
       </v-container>
     </v-card-text>
